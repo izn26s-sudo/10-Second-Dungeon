@@ -30,6 +30,7 @@ public class PlayerController : MonoBehaviour
     private float dashTimeCounter;
     private float dashCooldownCounter;
 
+    [SerializeField] private TrailRenderer trail;
     private float horizontal;
     private Vector2 velocity;
 
@@ -45,6 +46,10 @@ public class PlayerController : MonoBehaviour
             rb = GetComponent<Rigidbody2D>();
 
         animator = GetComponentInChildren<Animator>();
+        if (trail == null)
+            trail = GetComponent<TrailRenderer>();
+
+        trail.emitting = false;
     }
 
     void Update()
@@ -165,6 +170,7 @@ public class PlayerController : MonoBehaviour
         isDashing = true;
         dashTimeCounter = dashTime;
         dashCooldownCounter = dashCooldown;
+        trail.emitting = true;
     }
 
     void DashMove()
@@ -177,8 +183,10 @@ public class PlayerController : MonoBehaviour
         dashTimeCounter -= Time.deltaTime;
 
         if (dashTimeCounter <= 0)
+        {
             isDashing = false;
-
+            trail.emitting = false;
+        }
         rb.linearVelocity = velocity;
     }
 

@@ -2132,7 +2132,7 @@ TrailRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1247897496}
-  m_Enabled: 0
+  m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -2150,7 +2150,7 @@ TrailRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 10306, guid: 0000000000000000f000000000000000, type: 0}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2365,10 +2365,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1610075564}
-  - component: {fileID: 1610075563}
   - component: {fileID: 1610075565}
   - component: {fileID: 1610075566}
   - component: {fileID: 1610075567}
+  - component: {fileID: 1610075568}
   m_Layer: 6
   m_Name: Player
   m_TagString: Player
@@ -2376,33 +2376,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1610075563
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1610075562}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 37149042bdaeffc45b6f2bb907debd6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerController
-  rb: {fileID: 1610075565}
-  groundCheck: {fileID: 87940044}
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 8
-  moveSpeed: 8
-  airAcceleration: 40
-  jumpPower: 18
-  gravity: -35
-  fallMultiplier: 1.7
-  coyoteTime: 0.1
-  jumpBufferTime: 0.1
-  dashPower: 20
-  dashTime: 0.2
-  dashCooldown: 0.5
 --- !u!4 &1610075564
 Transform:
   m_ObjectHideFlags: 0
@@ -2530,6 +2503,34 @@ CapsuleCollider2D:
   m_Offset: {x: -0.3745875, y: -0.9720624}
   m_Size: {x: 0.5736974, y: 0.039798263}
   m_Direction: 1
+--- !u!114 &1610075568
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1610075562}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37149042bdaeffc45b6f2bb907debd6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerController
+  rb: {fileID: 1610075565}
+  groundCheck: {fileID: 87940044}
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 8
+  moveSpeed: 8
+  airAcceleration: 40
+  jumpPower: 18
+  gravity: -35
+  fallMultiplier: 1.7
+  coyoteTime: 0.1
+  jumpBufferTime: 0.1
+  dashPower: 20
+  dashTime: 0.2
+  dashCooldown: 0.5
+  trail: {fileID: 1247897502}
 --- !u!1 &2133727822
 GameObject:
   m_ObjectHideFlags: 0
