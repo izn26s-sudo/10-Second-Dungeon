@@ -31,6 +31,18 @@ public class SideScrollEnemy : MonoBehaviour
     [Header("攻撃クールタイム")]
     [SerializeField] private float attackCooldown = 1.0f;
     private float lastAttackTime = -999f;
+    
+    #region Knockback
+    [Header("ノックバック")]
+    [SerializeField] private float knockbackForce = 8f;
+    [SerializeField] private float knockbackUpForce = 3f;
+    [SerializeField] private float knockbackTime = 0.2f;
+
+    private bool isKnockback;
+    private float knockbackCounter;
+    #endregion
+
+    private Vector2 prevVelocity;
 
     private Rigidbody2D rb;
     private Transform player;
@@ -48,7 +60,27 @@ public class SideScrollEnemy : MonoBehaviour
 
     void Update()
     {
-       // Debug.Log(currentState);
+        // 🔥 velocity変化検知ログ
+        if (rb.linearVelocity != prevVelocity)
+        {
+            Debug.Log($"[Velocity変更] {prevVelocity} → {rb.linearVelocity} | State:{currentState} | Knockback:{isKnockback}");
+            prevVelocity = rb.linearVelocity;
+        }
+
+        // ノックバック中は全部停止
+        if (isKnockback)
+        {
+            knockbackCounter -= Time.deltaTime;
+
+            if (knockbackCounter <= 0)
+            {
+                isKnockback = false;
+                canMove = true;
+            }
+
+            return;
+        }
+
         switch (currentState)
         {
             case EnemyState.Patrol: Patrol(); break;
@@ -56,8 +88,8 @@ public class SideScrollEnemy : MonoBehaviour
             case EnemyState.Attack: Attack(); break;
             case EnemyState.AttackCooldown: AttackCooldown(); break;
         }
+
         UpdateAnimation();
-        //Debug.Log("Real Velocity: " + rb.linearVelocity.x);
     }
 
     // 状態変更
@@ -73,7 +105,11 @@ public class SideScrollEnemy : MonoBehaviour
     {
         if (!canMove) return;
 
-        rb.linearVelocity = new Vector2(moveSpeed * direction, rb.linearVelocity.y);
+        if (canMove && !isKnockback)
+        {
+            Debug.Log("[Patrol] velocityセット");
+            rb.linearVelocity = new Vector2(moveSpeed * direction, rb.linearVelocity.y);
+        }
 
         if (IsWallAhead() || IsCliffAhead())
         {
@@ -91,6 +127,8 @@ public class SideScrollEnemy : MonoBehaviour
         if (!canMove) return;
 
         float dir = Mathf.Sign(player.position.x - transform.position.x);
+
+        Debug.Log("[Chase] velocityセット");
         rb.linearVelocity = new Vector2(dir * chaseSpeed, rb.linearVelocity.y);
 
         if (InAttackRange())
@@ -103,7 +141,8 @@ public class SideScrollEnemy : MonoBehaviour
     // 攻撃
     void Attack()
     {
-        // 射程外なら戻る
+        if (isKnockback) return; // 👈 追加
+
         if (!InAttackRange())
         {
             isAttacking = false;
@@ -112,14 +151,13 @@ public class SideScrollEnemy : MonoBehaviour
             return;
         }
 
-        // クールタイム中
         if (Time.time - lastAttackTime < attackCooldown)
             return;
 
         if (!isAttacking)
         {
             isAttacking = true;
-            canMove = false;   // ← ここで停止確定
+            canMove = false;
             rb.linearVelocity = Vector2.zero;
             anim.SetTrigger("Attack");
         }
@@ -204,6 +242,43 @@ public class SideScrollEnemy : MonoBehaviour
         scale.x *= -1;
         transform.localScale = scale;
         //Debug.Log("壁を検知 → 反転");
+    }
+    public void TakeDamage(int damage, Vector2 attackerPosition)
+    {
+        // ここでHP処理入れてもOK
+
+        // 吹っ飛ぶ方向（プレイヤーの反対）
+        float dir = Mathf.Sign(transform.position.x - attackerPosition.x);
+
+        Vector2 force = new Vector2(dir * knockbackForce, knockbackUpForce);
+
+        rb.linearVelocity = Vector2.zero;
+        rb.AddForce(force, ForceMode2D.Impulse);
+
+        isKnockback = true;
+        knockbackCounter = knockbackTime;
+
+        canMove = false;
+    }
+
+    public void ApplyKnockback(Vector2 attackerPosition)
+    {
+        float dir = Mathf.Sign(transform.position.x - attackerPosition.x);
+
+        Vector2 force = new Vector2(dir * knockbackForce, knockbackUpForce);
+
+        rb.linearVelocity = Vector2.zero;
+        rb.AddForce(force, ForceMode2D.Impulse);
+
+        isKnockback = true;
+        knockbackCounter = knockbackTime;
+
+        canMove = false;
+
+        isAttacking = false;
+
+        // 👇 これ追加
+        ChangeState(EnemyState.Patrol);
     }
 
     // 崖判定

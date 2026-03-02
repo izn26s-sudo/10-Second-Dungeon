@@ -93,10 +93,24 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private LayerMask enemyLayer;
     [SerializeField] private int attackDamage = 1;
     [SerializeField] private float attackCooldown = 0.3f;
+    #region Attack Dash
+    [Header("Attack Dash")]
+    [SerializeField] private float attackDashPower = 10f;
+    [SerializeField] private float attackDashTime = 0.1f;
+    [SerializeField] private bool useAttackDash = true;
+    
+    #region Hit Stop
+    [Header("Hit Stop")]
+    [SerializeField] private float hitStopTime = 0.08f;
 
+    private bool isHitStopping;
+    #endregion
+    
+    private float attackDashCounter;
+    #endregion
     private bool isAttacking;
     private float attackCooldownCounter;
-    #endregion
+   #endregion
     void Start()
     {
         if (rb == null) rb = GetComponent<Rigidbody2D>();
@@ -129,7 +143,12 @@ public class PlayerController : MonoBehaviour
                 StartDash();
             }
         }
-
+        if (isHitStopping)
+        {
+            velocity = Vector2.zero;
+            rb.linearVelocity = velocity;
+            return;
+        }
         // ダッシュ中は通常移動を停止
         if (isDashing)
         {
@@ -137,6 +156,14 @@ public class PlayerController : MonoBehaviour
             UpdateAnimator();
             return;
            
+        }
+        // 攻撃ダッシュ処理
+        if (attackDashCounter > 0)
+        {
+            float direction = graphics.localScale.x;
+            velocity.x = direction * attackDashPower;
+
+            attackDashCounter -= Time.deltaTime;
         }
 
         // 攻撃クールダウン更新
@@ -297,13 +324,23 @@ public class PlayerController : MonoBehaviour
 
     void HandleMovement()
     {
-        if (isAttacking) return;
         if (isSliding) return;
+
+        // 👇 攻撃中は横移動だけ止める
+        if (isAttacking)
+        {
+            // ダッシュ中じゃなければ止める
+            if (attackDashCounter <= 0)
+                velocity.x *= 0.9f; // 少しずつ減速
+            return;
+        }
+
         if (isCrouching && isGrounded)
         {
             velocity.x = 0;
             return;
         }
+
         if (!canMove) return;
 
         if (isGrounded)
@@ -329,6 +366,7 @@ public class PlayerController : MonoBehaviour
         dashTimeCounter = dashTime;
         dashCooldownCounter = dashCooldown;
         trail.emitting = true;
+        isAttacking = false;
     }
 
     void DashMove()
@@ -395,33 +433,59 @@ public class PlayerController : MonoBehaviour
         animator.SetBool("IsDashing", isDashing);
         animator.SetBool("IsCrouching", isCrouching);
     }
+    IEnumerator HitStop()
+    {
+        isHitStopping = true;
+
+        float originalTimeScale = Time.timeScale;
+        Time.timeScale = 0f;
+
+        yield return new WaitForSecondsRealtime(hitStopTime);
+
+        Time.timeScale = originalTimeScale;
+        isHitStopping = false;
+    }
     void StartAttack()
     {
         isAttacking = true;
-        canMove = false;          // ← 移動停止
         attackCooldownCounter = attackCooldown;
 
-        velocity.x = 0;
         animator.SetTrigger("Attack");
+
+        // 👇 ダッシュ攻撃開始
+        if (useAttackDash)
+        {
+            attackDashCounter = attackDashTime;
+        }
     }
     public void PerformAttack()
     {
+        if (attackPoint == null) return;
+
         Collider2D[] hits = Physics2D.OverlapCircleAll(
             attackPoint.position,
             attackRadius,
             enemyLayer
         );
 
+        if (hits.Length > 0)
+        {
+            StartCoroutine(HitStop()); // 👈 ヒットストップ発動
+        }
+
         foreach (Collider2D hit in hits)
         {
-            hit.GetComponent<EnemyHealth>()?.TakeDamage(attackDamage);
+            EnemyHealth enemy = hit.GetComponent<EnemyHealth>();
+
+            if (enemy != null)
+            {
+                enemy.TakeDamage(attackDamage, transform.position);
+            }
         }
     }
     public void EndAttack()
     {
-        Debug.Log("EndAttack呼ばれた");
         isAttacking = false;
-        canMove = true;
     }
     void OnDrawGizmosSelected()
     {
