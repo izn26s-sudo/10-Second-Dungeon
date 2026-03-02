@@ -292,7 +292,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 161511a3c27ceb745831021274f6ff26, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
-  maxHP: 3
+  maxHP: 1
   knockbackPower: 46.37
   knockbackUpForce: 29.85
 --- !u!1 &4339007787390110364

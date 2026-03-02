@@ -5,10 +5,6 @@ public class EnemyHealth : MonoBehaviour
     [SerializeField] private int maxHP = 3;
     private int currentHP;
 
-    [Header("ノックバック")]
-    [SerializeField] private float knockbackPower = 8f;
-    [SerializeField] private float knockbackUpForce = 3f;
-
     private Rigidbody2D rb;
 
     private void Start()
@@ -17,29 +13,34 @@ public class EnemyHealth : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
     }
 
+    // 外部から呼ぶダメージ処理
     public void TakeDamage(int damage, Vector2 hitPoint)
     {
-        Debug.Log($"[ダメージ] {gameObject.name} に {damage} ダメージ");
-
-        currentHP -= damage;
-        Debug.Log($"[HP残量] {currentHP}/{maxHP}");
-
-        // 👇 AIにノックバック指示
+        // SideScrollEnemy 取得
         SideScrollEnemy enemy = GetComponent<SideScrollEnemy>();
-        if (enemy != null)
-        {
-            enemy.ApplyKnockback(hitPoint);
-        }
 
+        // ① 死亡中なら何もしない
+        if (enemy != null && enemy.isDead) return;
+
+        // ② HP 減算
+        currentHP -= damage;
+        Debug.Log($"[ダメージ] {gameObject.name} に {damage} ダメージ → HP:{currentHP}/{maxHP}");
+
+        // ③ HP が 0 以下なら死亡処理
         if (currentHP <= 0)
         {
-            Die();
+            Die(); // HandleDeath を呼ぶだけ
         }
     }
 
-        private void Die()
+    private void Die()
     {
         Debug.Log($"[死亡] {gameObject.name} が倒された");
-        Destroy(gameObject);
+
+        SideScrollEnemy enemy = GetComponent<SideScrollEnemy>();
+        if (enemy != null)
+        {
+            enemy.HandleDeath();  // 死亡処理（吹っ飛び・削除など）を委譲
+        }
     }
 }
