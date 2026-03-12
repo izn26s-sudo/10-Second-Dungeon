@@ -276,6 +276,9 @@ MonoBehaviour:
   attackRadius: 1
   attackDamage: 10
   attackCooldown: 1
+  deathEffectPrefab: {fileID: 0}
+  deathKnockbackY: 5
+  isDead: 0
   knockbackForce: 32.1
   knockbackUpForce: 18.25
   knockbackTime: 5.36
@@ -292,9 +295,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 161511a3c27ceb745831021274f6ff26, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
-  maxHP: 3
-  knockbackPower: 46.37
-  knockbackUpForce: 29.85
+  maxHP: 5000
+  invincibleTime: 0.5
+  blinkInterval: 0.1
+  shakeDuration: 0.05
+  shakeMagnitude: 0.15
+  damageTextPrefab: {fileID: 4988118693048116661, guid: 527e05be3502d2840b792a0bc1dea8e1, type: 3}
 --- !u!1 &4339007787390110364
 GameObject:
   m_ObjectHideFlags: 0

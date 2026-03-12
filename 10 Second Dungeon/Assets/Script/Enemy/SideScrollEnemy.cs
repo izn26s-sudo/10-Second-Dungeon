@@ -2,26 +2,26 @@ using UnityEngine;
 
 public class SideScrollEnemy : MonoBehaviour
 {
-    public enum EnemyState { Patrol, Chase, Attack, AttackCooldown }
+    public enum EnemyState { Patrol, Chase, Attack, AttackCooldown, Dead }
     private EnemyState currentState;
 
     [Header("移動")]
-    [SerializeField] float moveSpeed = 2f;
-    [SerializeField] float chaseSpeed = 3f;
+    [SerializeField] private float moveSpeed = 2f;
+    [SerializeField] private float chaseSpeed = 3f;
 
     [Header("検知")]
-    [SerializeField] float detectDistance = 5f;
-    [SerializeField] float attackRange = 1.5f;
-    [SerializeField] LayerMask playerLayer;
+    [SerializeField] private float detectDistance = 5f;
+    [SerializeField] private float attackRange = 1.5f;
+    [SerializeField] private LayerMask playerLayer;
 
     [Header("壁検知")]
-    [SerializeField] float wallCheckDistance = 0.5f;
-    [SerializeField] LayerMask groundLayer;
-    [SerializeField] Transform wallCheckPoint;
+    [SerializeField] private float wallCheckDistance = 0.5f;
+    [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private Transform wallCheckPoint;
 
     [Header("崖検知")]
-    [SerializeField] float groundCheckDistance = 1f;
-    [SerializeField] Transform groundCheckPoint;
+    [SerializeField] private float groundCheckDistance = 1f;
+    [SerializeField] private Transform groundCheckPoint;
 
     [Header("攻撃判定")]
     [SerializeField] private Transform attackPoint;
@@ -31,25 +31,27 @@ public class SideScrollEnemy : MonoBehaviour
     [Header("攻撃クールタイム")]
     [SerializeField] private float attackCooldown = 1.0f;
     private float lastAttackTime = -999f;
-    
-    #region Knockback
+
+    [Header("死亡")]
+    [SerializeField] private GameObject deathEffectPrefab; // Inspectorで設定可能
+    [SerializeField] private float deathKnockbackY = 5f;
+    public bool isDead = false;
+
     [Header("ノックバック")]
     [SerializeField] private float knockbackForce = 8f;
     [SerializeField] private float knockbackUpForce = 3f;
     [SerializeField] private float knockbackTime = 0.2f;
-
     private bool isKnockback;
     private float knockbackCounter;
-    #endregion
-
-    private Vector2 prevVelocity;
 
     private Rigidbody2D rb;
     private Transform player;
     private int direction = 1;
     private bool canMove = true;
-    [SerializeField] private Animator anim;  // 子のAnimator
     private bool isAttacking = false;
+
+    [SerializeField] private Animator anim; // 子のAnimator
+    private Vector2 prevVelocity;
 
     void Start()
     {
@@ -60,27 +62,21 @@ public class SideScrollEnemy : MonoBehaviour
 
     void Update()
     {
-        // 🔥 velocity変化検知ログ
-        if (rb.linearVelocity != prevVelocity)
-        {
-            Debug.Log($"[Velocity変更] {prevVelocity} → {rb.linearVelocity} | State:{currentState} | Knockback:{isKnockback}");
-            prevVelocity = rb.linearVelocity;
-        }
+        if (isDead) return; // 死亡中は何もしない
 
-        // ノックバック中は全部停止
+        // ノックバック処理
         if (isKnockback)
         {
             knockbackCounter -= Time.deltaTime;
-
             if (knockbackCounter <= 0)
             {
                 isKnockback = false;
                 canMove = true;
             }
-
             return;
         }
 
+        // 状態ごとの処理
         switch (currentState)
         {
             case EnemyState.Patrol: Patrol(); break;
@@ -92,43 +88,31 @@ public class SideScrollEnemy : MonoBehaviour
         UpdateAnimation();
     }
 
-    // 状態変更
+    // ---------------- 状態制御 ----------------
     void ChangeState(EnemyState newState)
     {
         if (currentState == newState) return;
         currentState = newState;
-       // Debug.Log("現在の状態: " + currentState);
     }
 
-    // 巡回
     void Patrol()
     {
         if (!canMove) return;
 
-        if (canMove && !isKnockback)
-        {
-            Debug.Log("[Patrol] velocityセット");
-            rb.linearVelocity = new Vector2(moveSpeed * direction, rb.linearVelocity.y);
-        }
+        rb.linearVelocity = new Vector2(moveSpeed * direction, rb.linearVelocity.y);
 
         if (IsWallAhead() || IsCliffAhead())
-        {
             Flip();
-            return;
-        }
 
         if (DetectPlayer())
             ChangeState(EnemyState.Chase);
     }
 
-    // 追跡
     void Chase()
     {
         if (!canMove) return;
 
         float dir = Mathf.Sign(player.position.x - transform.position.x);
-
-        Debug.Log("[Chase] velocityセット");
         rb.linearVelocity = new Vector2(dir * chaseSpeed, rb.linearVelocity.y);
 
         if (InAttackRange())
@@ -138,10 +122,9 @@ public class SideScrollEnemy : MonoBehaviour
             ChangeState(EnemyState.Patrol);
     }
 
-    // 攻撃
     void Attack()
     {
-        if (isKnockback) return; // 👈 追加
+        if (!canMove || isKnockback) return;
 
         if (!InAttackRange())
         {
@@ -151,8 +134,7 @@ public class SideScrollEnemy : MonoBehaviour
             return;
         }
 
-        if (Time.time - lastAttackTime < attackCooldown)
-            return;
+        if (Time.time - lastAttackTime < attackCooldown) return;
 
         if (!isAttacking)
         {
@@ -162,39 +144,11 @@ public class SideScrollEnemy : MonoBehaviour
             anim.SetTrigger("Attack");
         }
     }
-    // AnimationEventから呼ぶ攻撃判定
-    public void DealDamage()
-    {
-        // 攻撃クールタイム判定
-        if (Time.time - lastAttackTime < attackCooldown) return;
 
-        Collider2D hit = Physics2D.OverlapCircle(attackPoint.position, attackRadius, playerLayer);
-        if (hit != null)
-        {
-            PlayerHealth playerHealth = hit.GetComponent<PlayerHealth>();
-            if (playerHealth != null)
-            {
-                playerHealth.TakeDamage(attackDamage);
-               // Debug.Log($"Enemy dealt {attackDamage} damage to player");
-            }
-        }
-
-        lastAttackTime = Time.time;
-    }
-
-    // AnimationEventから呼ぶ攻撃終了
-    public void EndAttack()
-    {
-        isAttacking = false;
-        lastAttackTime = Time.time;
-        canMove = true;   // ← 再移動可能
-        ChangeState(EnemyState.AttackCooldown);
-    }
     void AttackCooldown()
     {
         rb.linearVelocity = Vector2.zero;
 
-        // クールタイム終了までIdle固定
         if (Time.time - lastAttackTime >= attackCooldown)
         {
             if (InAttackRange())
@@ -203,23 +157,111 @@ public class SideScrollEnemy : MonoBehaviour
                 ChangeState(EnemyState.Chase);
         }
     }
-    // アニメーション更新
+
     void UpdateAnimation()
     {
-        bool isRunning = (currentState == EnemyState.Chase || currentState == EnemyState.Patrol);
-        anim.SetBool("Run", isRunning);
+        if (isDead) return; // 死亡中は他のアニメを無効化
+        anim.SetBool("Run", currentState == EnemyState.Patrol || currentState == EnemyState.Chase);
     }
 
-    // プレイヤー検知
+    // ---------------- 攻撃判定 ----------------
+    public void DealDamage()
+    {
+        if (isDead) return; // 死亡中は攻撃無効
+
+        if (Time.time - lastAttackTime < attackCooldown) return;
+
+        Collider2D hit = Physics2D.OverlapCircle(attackPoint.position, attackRadius, playerLayer);
+        if (hit != null)
+        {
+            PlayerHealth playerHealth = hit.GetComponent<PlayerHealth>();
+            if (playerHealth != null)
+                playerHealth.TakeDamage(attackDamage);
+        }
+
+        lastAttackTime = Time.time;
+    }
+
+    public void EndAttack()
+    {
+        if (isDead) return;
+
+        isAttacking = false;
+        lastAttackTime = Time.time;
+        canMove = true;
+        ChangeState(EnemyState.AttackCooldown);
+    }
+
+    // ---------------- ダメージ処理 ----------------
+    public void TakeDamage(int damage, Vector2 attackerPosition)
+    {
+        if (isDead) return;
+
+        // ノックバック
+        float dir = Mathf.Sign(transform.position.x - attackerPosition.x);
+        Vector2 force = new Vector2(dir * knockbackForce, knockbackUpForce);
+        rb.linearVelocity = Vector2.zero;
+        rb.AddForce(force, ForceMode2D.Impulse);
+
+        isKnockback = true;
+        knockbackCounter = knockbackTime;
+        canMove = false;
+    }
+
+    public void ApplyKnockback(Vector2 attackerPosition)
+    {
+        if (isDead) return;
+
+        float dir = Mathf.Sign(transform.position.x - attackerPosition.x);
+        Vector2 force = new Vector2(dir * knockbackForce, knockbackUpForce);
+
+        rb.linearVelocity = Vector2.zero;
+        rb.AddForce(force, ForceMode2D.Impulse);
+
+        isKnockback = true;
+        knockbackCounter = knockbackTime;
+        canMove = false;
+        isAttacking = false;
+
+        ChangeState(EnemyState.Patrol);
+    }
+
+    // ---------------- 死亡処理 ----------------
+    public void HandleDeath()
+    {
+        if (isDead) return;
+        isDead = true;
+
+        ChangeState(EnemyState.Dead);
+
+        // 移動・攻撃・ノックバック停止
+        canMove = false;
+        isAttacking = false;
+        isKnockback = false;
+
+        // 速度リセット
+        rb.linearVelocity = Vector2.zero;
+
+        // 上方向に吹っ飛び
+        rb.AddForce(new Vector2(0, deathKnockbackY), ForceMode2D.Impulse);
+
+        // 死亡アニメーション
+        if (anim != null)
+            anim.SetTrigger("Die");
+
+        // 死亡エフェクト生成（設定があれば）
+        if (deathEffectPrefab != null)
+            Instantiate(deathEffectPrefab, transform.position, Quaternion.identity);
+
+        // 2秒後にオブジェクト削除
+        Destroy(gameObject, 2f);
+    }
+
+    // ---------------- 判定 ----------------
     bool DetectPlayer()
     {
         Vector2 dir = Vector2.right * direction;
-        RaycastHit2D hit = Physics2D.Raycast(
-            transform.position,
-            dir,
-            detectDistance,
-            playerLayer
-        );
+        RaycastHit2D hit = Physics2D.Raycast(transform.position, dir, detectDistance, playerLayer);
         return hit.collider != null;
     }
 
@@ -228,11 +270,16 @@ public class SideScrollEnemy : MonoBehaviour
         return Mathf.Abs(player.position.x - transform.position.x) < attackRange;
     }
 
-    // 壁判定
     bool IsWallAhead()
     {
         RaycastHit2D hit = Physics2D.Raycast(wallCheckPoint.position, Vector2.right * direction, wallCheckDistance, groundLayer);
         return hit.collider != null;
+    }
+
+    bool IsCliffAhead()
+    {
+        RaycastHit2D hit = Physics2D.Raycast(groundCheckPoint.position, Vector2.down, groundCheckDistance, groundLayer);
+        return hit.collider == null;
     }
 
     void Flip()
@@ -241,51 +288,6 @@ public class SideScrollEnemy : MonoBehaviour
         Vector3 scale = transform.localScale;
         scale.x *= -1;
         transform.localScale = scale;
-        //Debug.Log("壁を検知 → 反転");
-    }
-    public void TakeDamage(int damage, Vector2 attackerPosition)
-    {
-        // ここでHP処理入れてもOK
-
-        // 吹っ飛ぶ方向（プレイヤーの反対）
-        float dir = Mathf.Sign(transform.position.x - attackerPosition.x);
-
-        Vector2 force = new Vector2(dir * knockbackForce, knockbackUpForce);
-
-        rb.linearVelocity = Vector2.zero;
-        rb.AddForce(force, ForceMode2D.Impulse);
-
-        isKnockback = true;
-        knockbackCounter = knockbackTime;
-
-        canMove = false;
-    }
-
-    public void ApplyKnockback(Vector2 attackerPosition)
-    {
-        float dir = Mathf.Sign(transform.position.x - attackerPosition.x);
-
-        Vector2 force = new Vector2(dir * knockbackForce, knockbackUpForce);
-
-        rb.linearVelocity = Vector2.zero;
-        rb.AddForce(force, ForceMode2D.Impulse);
-
-        isKnockback = true;
-        knockbackCounter = knockbackTime;
-
-        canMove = false;
-
-        isAttacking = false;
-
-        // 👇 これ追加
-        ChangeState(EnemyState.Patrol);
-    }
-
-    // 崖判定
-    bool IsCliffAhead()
-    {
-        RaycastHit2D hit = Physics2D.Raycast(groundCheckPoint.position, Vector2.down, groundCheckDistance, groundLayer);
-        return hit.collider == null;
     }
 
     void OnDrawGizmosSelected()

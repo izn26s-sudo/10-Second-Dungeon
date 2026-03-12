@@ -1,45 +1,84 @@
 using UnityEngine;
+using System.Collections;
 
 public class CameraLookAhead : MonoBehaviour
 {
-    [Header("追従対象")]
     [SerializeField] private Transform target;
-
-    [Header("基本オフセット")]
     [SerializeField] private Vector3 baseOffset;
-
-    [Header("先読み距離")]
     [SerializeField] private float lookAheadDistance = 2f;
-
-    [Header("戻り速度")]
     [SerializeField] private float returnSpeed = 5f;
-
-    [Header("追従スピード")]
     [SerializeField] private float followSpeed = 5f;
 
-    private Vector3 currentLookAhead;
+    [Header("シェイク")]
+    [SerializeField] private float defaultShakeDuration = 0.1f;
+    [SerializeField] private float defaultShakeMagnitude = 0.15f;
 
+    private Vector3 currentLookAhead;
+    private Vector3 shakeOffset;
+    private Vector3 smoothVelocity;   // ★ 追加
+    private Vector3 basePosition;     // ★ 基準位置保持
+
+    private Coroutine shakeCoroutine;
+    void Start()
+    {
+        basePosition = transform.position;
+    }
     void LateUpdate()
     {
-        // WASD入力取得
         float inputX = Input.GetAxisRaw("Horizontal");
         float inputY = Input.GetAxisRaw("Vertical");
 
-        Vector3 targetLookAhead = new Vector3(inputX, inputY, 0) * lookAheadDistance;
+        Vector3 targetLookAhead =
+            new Vector3(inputX, inputY, 0) * lookAheadDistance;
 
-        // なめらかに補間
         currentLookAhead = Vector3.Lerp(
             currentLookAhead,
             targetLookAhead,
             returnSpeed * Time.deltaTime
         );
 
-        Vector3 targetPos = target.position + baseOffset + currentLookAhead;
+        Vector3 targetPos =
+            target.position + baseOffset + currentLookAhead;
 
-        transform.position = Vector3.Lerp(
-            transform.position,
+        // ★ transform.positionを基準にしない
+        basePosition = Vector3.Lerp(
+            basePosition,
             targetPos,
             followSpeed * Time.deltaTime
         );
+
+        // ★ 最終位置
+        transform.position = basePosition + shakeOffset;
+    }
+
+    public void ShakeDefault()
+    {
+        Shake(defaultShakeDuration, defaultShakeMagnitude);
+    }
+
+    public void Shake(float duration, float magnitude)
+    {
+        if (shakeCoroutine != null)
+            StopCoroutine(shakeCoroutine);
+
+        shakeCoroutine = StartCoroutine(ShakeRoutine(duration, magnitude));
+    }
+
+    private IEnumerator ShakeRoutine(float duration, float magnitude)
+    {
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            float x = Random.Range(-1f, 1f) * magnitude;
+            float y = Random.Range(-1f, 1f) * magnitude;
+
+            shakeOffset = new Vector3(x, y, 0f);
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        shakeOffset = Vector3.zero;
     }
 }
